@@ -6,8 +6,8 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-ORDER=8
-FC=150
+ORDER=4
+FC=205
 SR=44100
 
 
@@ -68,8 +68,13 @@ for H in [2, 3, 4, 5, 6]:
 plt.xlim(0, 0.05)
 plt.plot(x,y)
 
-b, a = butter(N=2, Wn=FC, btype='low', analog=False, output='ba', fs=SR)
+b, a = butter(N=ORDER, Wn=FC, btype='low', analog=False, output='ba', fs=SR)
 yp = lfilter(b, a, y)
 plt.plot(x, yp, label='Filtered signal (Order 2 )')
 
+print("Filter settings:")
+print("a: "+str(a))
+print("b: "+str(b))
+
 plt.show()
+

@@ -52,9 +52,7 @@ BWLowPass* create_bw_low_pass_filter(int order, FTR_PRECISION s, FTR_PRECISION f
     FTR_PRECISION a2 = a * a;
     FTR_PRECISION r;
     
-    int i;
-    
-    for(i=0; i < filter -> n; ++i){
+    for(int i=0; i < filter -> n; ++i){
         r = SIN((FTR_PRECISION)(M_PI * (2.0 * i + 1.0) / (4.0 * filter->n)));
         s = (FTR_PRECISION) (a2 + 2.0 * a * r + 1.0);
         filter->A[i] = a2 / s;
