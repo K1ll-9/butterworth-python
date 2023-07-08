@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#define DEBUG  0
+#define DEBUG  1
 
 typedef struct filter {
   double a0;
@@ -11,17 +11,17 @@ typedef struct filter {
   double b1;
   double b2;
 
-  double x0;
-  double x1;
-  double x2;
-  double y1;
-  double y2;
+  double X0;
+  double X1;
+  double X2;
+  double Y1;
+  double Y2;
 } ChebFilter;
 
 ChebFilter call_205(int P, ChebFilter filter, double FC, int NP, int LH, double PR) { 
 
-  double rp= -cos(M_PI/(NP*2)) + (P-1)*M_PI/NP;
-  double ip=  sin(M_PI/(NP*2)) + (P-1)*M_PI/NP;
+  double rp= -cos(M_PI/(NP*2) + (P-1)*M_PI/NP);
+  double ip=  sin(M_PI/(NP*2) + (P-1)*M_PI/NP);
 
   if(DEBUG) {
     printf("\n[call_205 #%d] rp= %.10lf\n", P, rp);
@@ -29,13 +29,20 @@ ChebFilter call_205(int P, ChebFilter filter, double FC, int NP, int LH, double 
     printf("\n");
   }
 
-  if(PR!=0) { 
-   double es= sqrt((double)100/pow(100-PR,2)-1);
-   double vx= (double)(1/NP) * log( (double)(1/es) / sqrt( (double)(1/pow(es,2))+1));
-   double kx= (double)(1/NP) * log( (double)(1/es) / sqrt( (double)(1/pow(es,2))-1));
+  if(PR!=0.0) { 
+    double es= sqrt(pow(100.0 / (100.0-PR),2) - 1.0);
+    double vx= (1.0/NP) * log( (1.0/es) + sqrt( (1.0/pow(es,2))+1.0) );
+    double kx= (1.0/NP) * log( (1.0/es) + sqrt( (1.0/pow(es,2))-1.0) );
           kx= (exp(kx) + exp(-kx))/2;
-          rp= rp * ( (exp(vx) - exp(-vx) ) /2 ) / kx;
-          ip= ip * ( (exp(vx) + exp(-vx) ) /2 ) / kx;
+          rp= rp * ((exp(vx) - exp(-vx))/2.0)/kx;
+          ip= ip * ((exp(vx) + exp(-vx))/2.0)/kx;
+    if(DEBUG) {
+      printf("[call_205 #%d PR!=0] rp= %.10lf\n", P, rp);
+      printf("[call_205 #%d PR!=0] ip= %.10lf\n", P, ip);
+      printf("[call_205 #%d PR!=0] es= %.10lf\n", P, es);
+      printf("[call_205 #%d PR!=0] vx= %.10lf\n", P, vx);
+      printf("[call_205 #%d PR!=0] kx= %.10lf\n", P, kx);
+    }
   }
 
   double t=2*tan((double)1/2);
@@ -170,11 +177,11 @@ ChebFilter create_che_filter(int NP, double PR, int LH, double FC) {
   printf("b1: %lf\n", filter.b1);
   printf("b2: %lf\n", filter.b2);
 
-  filter.x0=0;
-  filter.x1=0;
-  filter.x2=0;
-  filter.y1=0;
-  filter.y2=0;
+  filter.X0=0;
+  filter.X1=0;
+  filter.X2=0;
+  filter.Y1=0;
+  filter.Y2=0;
 
   return(filter);
 }
@@ -195,23 +202,78 @@ ChebFilter create_che_high_pass_filter(int NP, double FC, double PR) {
   return(create_che_filter(NP, PR, 1, FC));
 }
 
-double bw_low_pass(ChebFilter filter, double x0) {
-  double y=0;
+double bw_low_pass(ChebFilter filter, double X0) {
 
-  y= filter.a0*x0 + filter.a1*filter.x1 + filter.a2*filter.x2 + filter.b1*filter.y1 + filter.b2*filter.y2;
+  double Y= filter.a0*X0 + filter.a1*filter.X1 + filter.a2*filter.X2 + filter.b1*filter.Y1 + filter.b2*filter.Y2;
 
-  filter.y2=filter.y1;
-  filter.y1=y;
-  filter.x2= filter.x1;
-  filter.x1= filter.x0;
-  filter.x0=x0;
+  filter.Y2=filter.Y1;
+  filter.Y1=Y;
+  filter.X2= filter.X1;
+  filter.X1= filter.X0;
+  filter.X0=X0;
 
-  return(y);
+  if(DEBUG) {
+    printf("\n[bw_low_pass]\n");
+    printf("X0: %.10lf\n", X0);
+    printf("X1: %.10lf\n", filter.X1);
+    printf("X2: %.10lf\n", filter.X2);
+    printf("Y0: %.10lf\n", Y);
+    printf("Y1: %.10lf\n", filter.Y1);
+    printf("Y2: %.10lf\n\n", filter.Y2);
+  }
+  return(Y);
 }
 
-int main() {
-  ChebFilter filter = create_bw_low_pass_filter(4, (double)205/44100);
+#define DATA_LEN  2205
+#define RUNS      5
+#define ORDER     4
 
-  printf("Filtering 0.5678: %.10lf\n", bw_low_pass(filter, 0.5678));
+int main() {
+  // Check HP
+  /*
+  ChebFilter filter = create_che_filter(4, 10.0, 1, 0.1);
+  ChebFilter filter2;
+  call_205(2, filter2, 0.1, 4, 1, 10.0);
+  ChebFilter filter = create_che_filter(4, 0, 0, 0.1);
+  */
+
+  ChebFilter filter = create_bw_low_pass_filter(ORDER, (double)2*M_PI*205/44100);
+  double      input[DATA_LEN];
+  double      filtered_signal[RUNS][DATA_LEN];
+
+  printf("Opening and reading data file...\n");
+
+  FILE *fp = fopen("inputs.raw", "r");
+  if(fp == NULL) {
+    perror("Unable to open file!");
+    return(-1);
+  }
+  char line[30];
+
+  unsigned int i=0;
+  while(fgets(line, sizeof(line), fp) != NULL) {
+    sscanf(line, "%lf", &input[i]);
+    i++;
+  }
+
+  fclose(fp);
+
+  printf("Data stored into input[].\n");
+
+  for(int j=0; j<RUNS; j++) {
+    printf("Run #%d:\n", j);
+    for(int i=0; i<DATA_LEN; i++) {
+      filtered_signal[j][i] = bw_low_pass(filter, input[i]);
+    }
+  }
+
+  printf("Comparing results:\n");
+  for(int i=0; i<500; i++) {
+    printf("[bp_filter %i] input: %lf | ", i, input[i]);
+    for(int j=0; j<RUNS; j++)
+      printf(" f_out#%d %lf |", j, filtered_signal[j][i]);
+    printf("\n");
+  }
+
   return(0);
 }
